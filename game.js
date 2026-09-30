@@ -1,4 +1,7 @@
 
+/* GameShell fallback: if shell.js fails to load, provide minimal stubs */
+if(typeof GameShell==='undefined'){var GameShell={beginRound:function(){},now:function(){return Date.now();}};}
+
 (function(){
 var TARGETS=[
   {emoji:'🎯',pts:10,size:65,color:'#FF80AB'},
@@ -49,14 +52,15 @@ function showScreen(id){var s=document.querySelectorAll('.screen');for(var i=0;i
 
 function spawnTarget(){
   var zone=getEl('zone');
+  if(!zone) return;
   var zw=zone.offsetWidth||300,zh=zone.offsetHeight||380;
   var roll=Math.random();
   var t;
 
   /* Oni mode: bomb rate doubles */
   var bombRate=(speedMode==='oni')? 0.25 : 0.12;
-  if(roll<bombRate)t={emoji:BOMB.emoji,pts:BOMB.pts,size:BOMB.size,color:BOMB.color};
-  else if(roll<bombRate+0.13)t={emoji:'⭐',pts:30,size:50,color:'#FFD740'};
+  if(roll<bombRate) t={emoji:BOMB.emoji,pts:BOMB.pts,size:BOMB.size,color:BOMB.color};
+  else if(roll<bombRate+0.13) t={emoji:'⭐',pts:30,size:50,color:'#FFD740'};
   else{var base=TARGETS[Math.floor(Math.random()*TARGETS.length)];t={emoji:base.emoji,pts:base.pts,size:base.size,color:base.color};}
 
   /* Size: oni speed → random 30%~120%, otherwise use sizeMode */
@@ -66,7 +70,7 @@ function spawnTarget(){
   }else{
     sz=Math.round(t.size*getSizeMult());
   }
-  if(sz<24)sz=24;
+  if(sz<24) sz=24;
 
   var x=10+Math.random()*(zw-sz-20);
   var y=10+Math.random()*(zh-sz-20);
@@ -82,7 +86,7 @@ function spawnTarget(){
   el.textContent=t.emoji;
 
   /* Apply score bonus */
-  var adjustedPts=t.pts<0? t.pts : Math.round(t.pts*getScoreBonus());
+  var adjustedPts=t.pts<0 ? t.pts : Math.round(t.pts*getScoreBonus());
   el.setAttribute('data-pts',adjustedPts);
 
   el.addEventListener('click',function(e){
@@ -129,7 +133,7 @@ function spawnTarget(){
   /* Apply speed multiplier to auto-remove timing */
   var baseTime=2500-Math.min(1500,score*2);
   var autoRemoveTime=Math.round(baseTime*getSpeedMult());
-  if(autoRemoveTime<350)autoRemoveTime=350;
+  if(autoRemoveTime<350) autoRemoveTime=350;
   setTimeout(function(){
     if(el.parentNode){el.remove();combo=0;getEl('comboDisplay').textContent='';spawnTarget();}
   },autoRemoveTime);
@@ -137,6 +141,7 @@ function spawnTarget(){
 
 function startOniEffects(){
   var overlay=getEl('oniOverlay');
+  if(!overlay) return;
   overlay.classList.add('active');
   var flash=true;
   oniFlashTimer=setInterval(function(){
@@ -144,10 +149,13 @@ function startOniEffects(){
     flash=!flash;
   },400);
 }
+
 function stopOniEffects(){
   var overlay=getEl('oniOverlay');
-  overlay.classList.remove('active');
-  overlay.style.opacity='0';
+  if(overlay){
+    overlay.classList.remove('active');
+    overlay.style.opacity='0';
+  }
   if(oniFlashTimer){clearInterval(oniFlashTimer);oniFlashTimer=null;}
 }
 
@@ -161,6 +169,7 @@ function startGame(){
   var zone=getEl('zone');zone.innerHTML='';
   stopOniEffects();
 
+  // Countdown
   var cd=document.createElement('div');
   cd.style.cssText='font-size:60px;text-align:center;padding-top:40%';
   cd.textContent='3';
@@ -231,12 +240,14 @@ for(var i=0;i<spdBtns.length;i++){(function(btn){
     /* When oni speed is selected, hide size options (size becomes random) */
     var sizeLabel=getEl('sizeLabelRow');
     var sizeRow=getEl('sizeBtnRow');
-    if(speedMode==='oni'){
-      sizeLabel.style.display='none';
-      sizeRow.style.display='none';
-    }else{
-      sizeLabel.style.display='';
-      sizeRow.style.display='';
+    if(sizeLabel && sizeRow){
+      if(speedMode==='oni'){
+        sizeLabel.style.display='none';
+        sizeRow.style.display='none';
+      }else{
+        sizeLabel.style.display='';
+        sizeRow.style.display='';
+      }
     }
   });
 })(spdBtns[i]);}

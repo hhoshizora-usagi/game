@@ -28,6 +28,5 @@ h1{font-size:24px;color:#FF6F00;margin:8px 0}
 
 /* Oni overlay for red flash effect */
 .oni-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle,rgba(233,30,99,0.15),rgba(183,28,28,0.2));pointer-events:none;opacity:0;z-index:10;transition:opacity 0.2s}
-.oni-overlay.active{display:block}
 
 body{align-items:flex-start!important}#g{height:auto!important;min-height:calc(100dvh - 110px);overflow:visible!important}.screen.active{position:relative!important;inset:auto!important;min-height:420px;width:100%}#playScreen{min-height:530px}.play-area{min-height:300px}canvas{max-width:100%;touch-action:none}
