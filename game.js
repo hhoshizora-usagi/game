@@ -11,7 +11,23 @@ var TARGETS=[
   {emoji:'💖',pts:10,size:58,color:'#FF80AB'},
   {emoji:'🎵',pts:10,size:55,color:'#7C4DFF'},
   {emoji:'🌈',pts:20,size:52,color:'#00BCD4'},
-  {emoji:'🍰',pts:15,size:58,color:'#FFB74D'}
+  {emoji:'🍰',pts:15,size:58,color:'#FFB74D'},
+  {emoji:'🦋',pts:10,size:55,color:'#CE93D8'},
+  {emoji:'🐱',pts:10,size:60,color:'#FFAB91'},
+  {emoji:'🍩',pts:15,size:55,color:'#A1887F'},
+  {emoji:'🎈',pts:10,size:58,color:'#EF5350'},
+  {emoji:'🌻',pts:10,size:60,color:'#FDD835'},
+  {emoji:'🍭',pts:15,size:52,color:'#F06292'},
+  {emoji:'🐰',pts:20,size:55,color:'#E0E0E0'},
+  {emoji:'🎀',pts:10,size:55,color:'#F48FB1'},
+  {emoji:'🍓',pts:15,size:52,color:'#E53935'},
+  {emoji:'🦊',pts:10,size:58,color:'#FF8A65'},
+  {emoji:'🌙',pts:20,size:50,color:'#FFF176'},
+  {emoji:'🐧',pts:10,size:55,color:'#90A4AE'},
+  {emoji:'🍡',pts:15,size:55,color:'#F8BBD0'},
+  {emoji:'🎃',pts:10,size:60,color:'#FFB74D'},
+  {emoji:'🐸',pts:10,size:55,color:'#A5D6A7'},
+  {emoji:'🎪',pts:20,size:52,color:'#E040FB'}
 ];
 var BOMB={emoji:'💣',pts:-20,size:55,color:'#555'};
 
@@ -45,7 +61,55 @@ function getScoreBonus(){
   }
   return b;
 }
-/* --- end settings --- */
+
+/* --- Anti-overlap placement --- */
+function getExistingTargets(zone){
+  var rects=[];
+  var targets=zone.querySelectorAll('.target');
+  for(var i=0;i<targets.length;i++){
+    var t=targets[i];
+    rects.push({
+      x:parseFloat(t.style.left)||0,
+      y:parseFloat(t.style.top)||0,
+      w:parseFloat(t.style.width)||50,
+      h:parseFloat(t.style.height)||50
+    });
+  }
+  return rects;
+}
+
+function overlaps(x,y,sz,existing){
+  var pad=8; /* minimum gap between targets */
+  for(var i=0;i<existing.length;i++){
+    var r=existing[i];
+    if(x<r.x+r.w+pad && x+sz+pad>r.x && y<r.y+r.h+pad && y+sz+pad>r.y){
+      return true;
+    }
+  }
+  return false;
+}
+
+function findPosition(zone,sz){
+  var zw=zone.offsetWidth||300,zh=zone.offsetHeight||380;
+  var existing=getExistingTargets(zone);
+  var margin=10;
+  var maxW=zw-sz-margin;
+  var maxH=zh-sz-margin;
+  if(maxW<margin) maxW=margin+1;
+  if(maxH<margin) maxH=margin+1;
+
+  /* Try up to 30 random positions to avoid overlap */
+  for(var attempt=0;attempt<30;attempt++){
+    var x=margin+Math.random()*(maxW-margin);
+    var y=margin+Math.random()*(maxH-margin);
+    if(!overlaps(x,y,sz,existing)){
+      return {x:x,y:y};
+    }
+  }
+  /* Fallback: just pick a random spot */
+  return {x:margin+Math.random()*(maxW-margin), y:margin+Math.random()*(maxH-margin)};
+}
+/* --- end anti-overlap --- */
 
 function getEl(id){return document.getElementById(id);}
 function showScreen(id){var s=document.querySelectorAll('.screen');for(var i=0;i<s.length;i++)s[i].classList.remove('active');getEl(id).classList.add('active');}
@@ -53,7 +117,6 @@ function showScreen(id){var s=document.querySelectorAll('.screen');for(var i=0;i
 function spawnTarget(){
   var zone=getEl('zone');
   if(!zone) return;
-  var zw=zone.offsetWidth||300,zh=zone.offsetHeight||380;
   var roll=Math.random();
   var t;
 
@@ -72,8 +135,10 @@ function spawnTarget(){
   }
   if(sz<24) sz=24;
 
-  var x=10+Math.random()*(zw-sz-20);
-  var y=10+Math.random()*(zh-sz-20);
+  /* Find non-overlapping position */
+  var pos=findPosition(zone,sz);
+  var x=pos.x;
+  var y=pos.y;
 
   var el=document.createElement('div');
   el.className='target';
