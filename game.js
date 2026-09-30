@@ -3,6 +3,83 @@
 if(typeof GameShell==='undefined'){var GameShell={beginRound:function(){},now:function(){return Date.now();}};}
 
 (function(){
+
+/* ============ Sound Effects (Web Audio API) ============ */
+var sfxCtx=null;
+var sfxEnabled=true;
+var sfxVolume=0.25;
+
+function initAudio(){
+  if(sfxCtx) return;
+  try{ sfxCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+}
+
+function playTone(freq,dur,type,vol,decay){
+  if(!sfxEnabled||!sfxCtx) return;
+  try{
+    sfxCtx.resume();
+    var osc=sfxCtx.createOscillator();
+    var gain=sfxCtx.createGain();
+    osc.type=type||'sine';
+    osc.frequency.value=freq;
+    gain.gain.setValueAtTime((vol||sfxVolume),sfxCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,sfxCtx.currentTime+(decay||dur));
+    osc.connect(gain);gain.connect(sfxCtx.destination);
+    osc.start(sfxCtx.currentTime);
+    osc.stop(sfxCtx.currentTime+(decay||dur));
+  }catch(e){}
+}
+
+function sfxTap(){
+  /* cheerful pop */
+  playTone(880,0.08,'sine',0.15,0.08);
+  playTone(1320,0.06,'sine',0.1,0.06);
+}
+function sfxBonus(){
+  /* sparkle arpeggio */
+  playTone(1047,0.08,'sine',0.18,0.1);
+  setTimeout(function(){playTone(1319,0.08,'sine',0.15,0.1);},40);
+  setTimeout(function(){playTone(1568,0.1,'sine',0.12,0.12);},80);
+}
+function sfxBomb(){
+  /* low rumble */
+  playTone(120,0.2,'sawtooth',0.2,0.25);
+  playTone(80,0.15,'square',0.1,0.2);
+}
+function sfxCombo(){
+  /* rising chime */
+  playTone(660,0.06,'sine',0.12,0.08);
+  setTimeout(function(){playTone(880,0.06,'sine',0.12,0.08);},50);
+  setTimeout(function(){playTone(1100,0.08,'sine',0.15,0.1);},100);
+}
+function sfxMiss(){
+  /* soft thud */
+  playTone(200,0.1,'triangle',0.08,0.12);
+}
+function sfxCountdown(){
+  /* short beep */
+  playTone(600,0.08,'square',0.08,0.1);
+}
+function sfxCountdownGo(){
+  /* higher beep */
+  playTone(900,0.1,'square',0.12,0.12);
+  setTimeout(function(){playTone(1200,0.12,'sine',0.1,0.15);},60);
+}
+function sfxGameOver(){
+  /* descending melody */
+  playTone(880,0.15,'sine',0.15,0.2);
+  setTimeout(function(){playTone(660,0.15,'sine',0.12,0.2);},150);
+  setTimeout(function(){playTone(440,0.2,'sine',0.1,0.3);},300);
+}
+function sfxHighScore(){
+  /* triumphant fanfare */
+  playTone(784,0.12,'sine',0.18,0.15);
+  setTimeout(function(){playTone(988,0.12,'sine',0.15,0.15);},120);
+  setTimeout(function(){playTone(1175,0.12,'sine',0.15,0.15);},240);
+  setTimeout(function(){playTone(1568,0.2,'sine',0.2,0.3);},360);
+}
+/* ============ End Sound Effects ============ */
+
 var TARGETS=[
   {emoji:'🎯',pts:10,size:65,color:'#FF80AB'},
   {emoji:'⭐',pts:25,size:55,color:'#FFD740'},
@@ -79,7 +156,7 @@ function getExistingTargets(zone){
 }
 
 function overlaps(x,y,sz,existing){
-  var pad=8; /* minimum gap between targets */
+  var pad=8;
   for(var i=0;i<existing.length;i++){
     var r=existing[i];
     if(x<r.x+r.w+pad && x+sz+pad>r.x && y<r.y+r.h+pad && y+sz+pad>r.y){
@@ -97,8 +174,6 @@ function findPosition(zone,sz){
   var maxH=zh-sz-margin;
   if(maxW<margin) maxW=margin+1;
   if(maxH<margin) maxH=margin+1;
-
-  /* Try up to 30 random positions to avoid overlap */
   for(var attempt=0;attempt<30;attempt++){
     var x=margin+Math.random()*(maxW-margin);
     var y=margin+Math.random()*(maxH-margin);
@@ -106,7 +181,6 @@ function findPosition(zone,sz){
       return {x:x,y:y};
     }
   }
-  /* Fallback: just pick a random spot */
   return {x:margin+Math.random()*(maxW-margin), y:margin+Math.random()*(maxH-margin)};
 }
 /* --- end anti-overlap --- */
@@ -119,14 +193,13 @@ function spawnTarget(){
   if(!zone) return;
   var roll=Math.random();
   var t;
+  var isBonus=false,isBomb=false;
 
-  /* Oni mode: bomb rate doubles */
   var bombRate=(speedMode==='oni')? 0.25 : 0.12;
-  if(roll<bombRate) t={emoji:BOMB.emoji,pts:BOMB.pts,size:BOMB.size,color:BOMB.color};
-  else if(roll<bombRate+0.13) t={emoji:'⭐',pts:30,size:50,color:'#FFD740'};
+  if(roll<bombRate){t={emoji:BOMB.emoji,pts:BOMB.pts,size:BOMB.size,color:BOMB.color};isBomb=true;}
+  else if(roll<bombRate+0.13){t={emoji:'⭐',pts:30,size:50,color:'#FFD740'};isBonus=true;}
   else{var base=TARGETS[Math.floor(Math.random()*TARGETS.length)];t={emoji:base.emoji,pts:base.pts,size:base.size,color:base.color};}
 
-  /* Size: oni speed → random 30%~120%, otherwise use sizeMode */
   var sz;
   if(speedMode==='oni'){
     sz=Math.round(t.size*(0.3+Math.random()*0.9));
@@ -135,7 +208,6 @@ function spawnTarget(){
   }
   if(sz<24) sz=24;
 
-  /* Find non-overlapping position */
   var pos=findPosition(zone,sz);
   var x=pos.x;
   var y=pos.y;
@@ -150,18 +222,22 @@ function spawnTarget(){
   el.style.fontSize=Math.floor(sz*0.55)+'px';
   el.textContent=t.emoji;
 
-  /* Apply score bonus */
   var adjustedPts=t.pts<0 ? t.pts : Math.round(t.pts*getScoreBonus());
   el.setAttribute('data-pts',adjustedPts);
+  el.setAttribute('data-bomb',isBomb?'1':'0');
+  el.setAttribute('data-bonus',isBonus?'1':'0');
 
   el.addEventListener('click',function(e){
     e.stopPropagation();
     var pts=parseInt(this.getAttribute('data-pts'));
+    var wasBomb=this.getAttribute('data-bomb')==='1';
+    var wasBonus=this.getAttribute('data-bonus')==='1';
     taps++;
 
     if(pts<0){
       combo=0;fever=false;
       score+=pts;if(score<0)score=0;
+      sfxBomb();
       var eff=document.createElement('div');
       eff.className='effect';eff.textContent='💥-'+Math.abs(pts);
       eff.style.left=x+'px';eff.style.top=y+'px';eff.style.color='#FF5252';eff.style.fontSize='20px';
@@ -173,6 +249,11 @@ function spawnTarget(){
       if(combo>=10){fever=true;mult+=1;}
       var gained=Math.floor(pts*mult);
       score+=gained;
+
+      /* Play sound based on type */
+      if(wasBonus) sfxBonus();
+      else if(combo>0 && combo%5===0) sfxCombo();
+      else sfxTap();
 
       var eff=document.createElement('div');
       eff.className='effect';
@@ -195,7 +276,6 @@ function spawnTarget(){
 
   zone.appendChild(el);
 
-  /* Apply speed multiplier to auto-remove timing */
   var baseTime=2500-Math.min(1500,score*2);
   var autoRemoveTime=Math.round(baseTime*getSpeedMult());
   if(autoRemoveTime<350) autoRemoveTime=350;
@@ -225,6 +305,7 @@ function stopOniEffects(){
 }
 
 function startGame(){
+  initAudio();
   GameShell.beginRound();
   score=0;taps=0;combo=0;maxCombo=0;fever=false;
   getEl('score').textContent='0';
@@ -234,16 +315,17 @@ function startGame(){
   var zone=getEl('zone');zone.innerHTML='';
   stopOniEffects();
 
-  // Countdown
+  // Countdown with beeps
   var cd=document.createElement('div');
   cd.style.cssText='font-size:60px;text-align:center;padding-top:40%';
   cd.textContent='3';
   zone.appendChild(cd);
+  sfxCountdown();
   var c=3;
   var cdt=setInterval(function(){
     c--;
-    if(c>0){cd.textContent=c;}
-    else{clearInterval(cdt);cd.remove();actualStart();}
+    if(c>0){cd.textContent=c;sfxCountdown();}
+    else{clearInterval(cdt);cd.remove();sfxCountdownGo();actualStart();}
   },700);
 }
 
@@ -263,8 +345,13 @@ function endGame(){
   stopOniEffects();
   var zone=getEl('zone');
   while(zone.firstChild)zone.removeChild(zone.firstChild);
-  if(score>best){best=score;try{localStorage.setItem('spt2',best);}catch(e){}}
+  var isNewBest=(score>best);
+  if(isNewBest){best=score;try{localStorage.setItem('spt2',best);}catch(e){}}
   var tps=(taps/duration).toFixed(1);
+
+  /* Play end sound */
+  if(isNewBest) sfxHighScore();
+  else sfxGameOver();
 
   showScreen('resultScreen');
   if(score>=duration*20){
@@ -283,7 +370,7 @@ function endGame(){
 }
 
 // Miss tap on zone background
-getEl('zone').addEventListener('click',function(){combo=0;fever=false;getEl('comboDisplay').textContent='';});
+getEl('zone').addEventListener('click',function(){combo=0;fever=false;getEl('comboDisplay').textContent='';sfxMiss();});
 
 // Duration buttons
 var mBtns=[getEl('m10'),getEl('m20'),getEl('m30')];
@@ -302,7 +389,6 @@ for(var i=0;i<spdBtns.length;i++){(function(btn){
     for(var j=0;j<spdBtns.length;j++)spdBtns[j].classList.remove('active');
     btn.classList.add('active');
     speedMode=btn.getAttribute('data-val');
-    /* When oni speed is selected, hide size options (size becomes random) */
     var sizeLabel=getEl('sizeLabelRow');
     var sizeRow=getEl('sizeBtnRow');
     if(sizeLabel && sizeRow){
